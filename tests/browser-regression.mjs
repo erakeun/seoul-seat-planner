@@ -160,6 +160,8 @@ try {
   await page.goto(`http://localhost:${plannerPort}`, { waitUntil: "networkidle" });
   assert.equal(await page.locator("[data-seat-id]").count(), 53);
   assert.match(await page.locator("body").innerText(), /메인 49석 \+ 배석 4석 = 총 53석/);
+  assert.equal(await page.locator("#nameplate-button").isDisabled(), true);
+  assert.equal(await page.locator("#nameplate-action-help").textContent(), "배정된 참석자가 없습니다.");
 
   await page.click("#add-attendee-button");
   await page.click("#attendee-dialog .icon-button[data-close-dialog]");
@@ -182,6 +184,8 @@ try {
   await page.click(".attendee-item");
   await page.click('[data-seat-id="SEOUL-UPPER-01"]');
   assert.equal(Number(await page.locator("#assigned-count").textContent()), 1);
+  assert.equal(await page.locator("#nameplate-button").isEnabled(), true);
+  assert.equal(await page.locator("#nameplate-action-help").textContent(), "1명 전송 준비");
   await page.click('[data-filter="all"]');
   await page.click('[data-edit-attendee]');
   await page.fill("#attendee-title", "가명직위");

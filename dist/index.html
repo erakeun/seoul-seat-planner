@@ -29,7 +29,10 @@
           <div class="divider" aria-hidden="true"></div>
           <button class="button ghost" id="new-button" type="button">새 배치</button>
           <button class="button ghost" id="institutions-button" type="button">참여기관 관리</button>
-          <button class="button ghost" id="nameplate-button" type="button">명패 만들기</button>
+          <button class="button nameplate-action" id="nameplate-button" type="button" disabled title="배정된 참석자가 없습니다.">
+            <span class="workflow-step" aria-hidden="true">3</span>
+            <span class="nameplate-action-copy"><span>명패 만들기</span><small id="nameplate-action-help">배정된 참석자가 없습니다.</small></span>
+          </button>
           <button class="button ghost" id="data-menu-button" type="button" aria-haspopup="menu" aria-expanded="false">가져오기·내보내기</button>
           <div class="data-menu" id="data-menu" role="menu" hidden>
             <button type="button" data-action="json-export" role="menuitem">배치 데이터 JSON 내보내기</button>
@@ -81,7 +84,7 @@
               <h2>참석자</h2>
             </div>
             <div class="panel-actions">
-              <button class="button ghost" id="bulk-attendee-button" type="button">명단 일괄 등록</button>
+              <button class="button ghost" id="bulk-attendee-button" type="button"><span class="workflow-step" aria-hidden="true">1</span>명단 일괄 등록</button>
               <button class="button primary" id="add-attendee-button" type="button">한 명 추가</button>
             </div>
           </div>
@@ -124,7 +127,7 @@
               <span><i class="legend-dot main"></i>메인석</span>
               <span><i class="legend-dot staff"></i>배석</span>
             </div>
-            <button class="button primary auto-layout-button" id="auto-layout-button" type="button">좌석 자동배치(초안)</button>
+            <button class="button primary auto-layout-button" id="auto-layout-button" type="button"><span class="workflow-step" aria-hidden="true">2</span>좌석 자동배치(초안)</button>
             <div class="canvas-controls">
               <label class="switch-control">
                 <input id="seat-number-toggle" type="checkbox" checked />
