@@ -70,6 +70,14 @@ h1, h2, p { margin-top: 0; }
 .topbar .button.ghost { border-color: rgba(255,255,255,.22); color: #fff; background: rgba(255,255,255,.06); }
 .button.ghost:hover:not(:disabled) { background: #f1f5f8; }
 .topbar .button.ghost:hover:not(:disabled) { background: rgba(255,255,255,.13); }
+.topbar .button.nameplate-action { min-height: 46px; padding: 5px 12px; color: #fff; border-color: #5ca9df; background: var(--blue-600); box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+.topbar .button.nameplate-action:hover:not(:disabled) { background: var(--blue-500); }
+.topbar .button.nameplate-action:disabled { opacity: .62; color: #dbe9f4; border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.09); box-shadow: none; }
+.workflow-step { width: 19px; height: 19px; flex: 0 0 19px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--blue-600); background: #fff; font-size: 11px; font-weight: 900; line-height: 1; }
+.button.ghost .workflow-step { color: #fff; background: var(--blue-600); }
+.nameplate-action-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.1; }
+.nameplate-action-copy small { color: #d8ebfa; font-size: 10px; font-weight: 600; }
+.nameplate-action:disabled .nameplate-action-copy small { color: #b6c7d6; }
 .button.primary { color: #fff; background: var(--blue-600); }
 .button.primary:hover { background: #0d5797; }
 .button.danger { color: var(--danger); border-color: #e4b7ba; background: #fff; }
@@ -251,6 +259,7 @@ h1, h2, p { margin-top: 0; }
   .topbar h1 { font-size: 18px; }
   .header-actions { overflow-x: auto; margin: 0 -4px; padding: 3px 4px 0; }
   .header-actions .button { flex: 0 0 auto; }
+  .header-actions .nameplate-action { position: sticky; left: 4px; z-index: 2; order: -1; }
   .event-strip { grid-template-columns: 1fr 1fr; padding: 9px 12px; }
   .event-title-field, .location-field { grid-column: 1 / -1; }
   .note-field { display: none; }
@@ -269,6 +278,10 @@ h1, h2, p { margin-top: 0; }
 @media (max-width: 480px) {
   .header-actions .button span { display: none; }
   .header-actions .button { padding: 0 10px; }
+  .header-actions .button.nameplate-action { padding: 5px 11px; }
+  .header-actions .button.nameplate-action .workflow-step,
+  .header-actions .button.nameplate-action .nameplate-action-copy,
+  .header-actions .button.nameplate-action .nameplate-action-copy > span { display: flex; }
   .mode-switch button { min-width: 53px; }
   .event-strip { grid-template-columns: 1fr; }
   .event-strip .field { grid-column: 1 / -1; }

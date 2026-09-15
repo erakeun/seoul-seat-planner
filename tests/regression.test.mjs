@@ -83,9 +83,11 @@ test("자동배치는 중복 순위·기준석·좌석 부족을 적용 불가�
 });
 
 test("명패 전달은 배정된 참석자만 origin-bound postMessage로 전송한다", () => {
+  const people = declaration("nameplatePeople");
+  assert.match(people, /roomTemplate\.seats/);
+  assert.match(people, /state\.assignments\[seat\.id\]/);
   const handoff = declaration("openNameplateMaker");
-  assert.match(handoff, /roomTemplate\.seats/);
-  assert.match(handoff, /state\.assignments\[seat\.id\]/);
+  assert.match(handoff, /const people = nameplatePeople\(\)/);
   assert.match(handoff, /postMessage\(payload, targetOrigin\)/);
   assert.match(handoff, /transferId: crypto\.randomUUID\(\)/);
   assert.match(handoff, /event\.origin === targetOrigin/);
@@ -94,6 +96,15 @@ test("명패 전달은 배정된 참석자만 origin-bound postMessage로 전송
   assert.match(handoff, /nameplates:rejected/);
   assert.match(handoff, /event\.data\.transferId === payload\.transferId/);
   assert.doesNotMatch(handoff, /URLSearchParams|location\.search|encodeURIComponent\(.*people/);
+});
+
+test("명패 만들기는 배정 상태를 설명하는 주요 액션으로 항상 노출된다", () => {
+  assert.match(html, /class="button nameplate-action" id="nameplate-button"/);
+  assert.match(html, /id="nameplate-action-help"/);
+  const actionState = declaration("renderNameplateAction");
+  assert.match(actionState, /const people = nameplatePeople\(\)/);
+  assert.match(actionState, /button\.disabled = people\.length === 0/);
+  assert.match(actionState, /배정된 참석자가 없습니다/);
 });
 
 test("Excel 원본 바이너리와 운영 명단 seed는 저장소에 포함되지 않는다", () => {
