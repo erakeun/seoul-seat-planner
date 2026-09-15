@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -73,11 +73,13 @@ test("서울 기존 양식 Excel Import는 양식 식별과 고정 좌석 Previe
   assert.match(app, /서울 기존 양식 \$\{sheetName\}!\$\{seat\.sourceCell\}/);
 });
 
-test("자동배치는 중복 순위와 기관 간 확장 충돌을 적용 불가로 표시한다", () => {
+test("자동배치는 중복 순위·기준석·좌석 부족을 적용 불가로 표시한다", () => {
   const draft = declaration("calculateAutoDraft");
   assert.match(draft, /기관 내 순위 중복/);
-  assert.match(draft, /기관별 확장 영역 충돌/);
-  assert.match(draft, /usedSeats\.has\(seat\.id\)/);
+  assert.match(draft, /기관 기준 좌석이 중복/);
+  assert.match(draft, /같은 장변 좌석이 부족/);
+  assert.match(draft, /claimedReferences\.has\(candidate\.id\)/);
+  assert.match(app, /autoDraft\.sourceSnapshot = snapshot\(\)/);
 });
 
 test("명패 전달은 배정된 참석자만 origin-bound postMessage로 전송한다", () => {
@@ -86,11 +88,17 @@ test("명패 전달은 배정된 참석자만 origin-bound postMessage로 전송
   assert.match(handoff, /state\.assignments\[seat\.id\]/);
   assert.match(handoff, /postMessage\(payload, targetOrigin\)/);
   assert.match(handoff, /transferId: crypto\.randomUUID\(\)/);
+  assert.match(handoff, /event\.origin === targetOrigin/);
+  assert.match(handoff, /event\.source === child/);
+  assert.match(handoff, /nameplates:accepted/);
+  assert.match(handoff, /nameplates:rejected/);
+  assert.match(handoff, /event\.data\.transferId === payload\.transferId/);
   assert.doesNotMatch(handoff, /URLSearchParams|location\.search|encodeURIComponent\(.*people/);
 });
 
-test("Excel 원본과 실명 데이터는 배포 코드에 포함되지 않는다", () => {
-  assert.doesNotMatch(html, /교육과정위원회|류호경|원영준|윤성호/);
-  assert.doesNotMatch(app, /교육과정위원회|류호경|원영준|윤성호/);
-  assert.doesNotMatch(templateSource, /교육과정위원회|류호경|원영준|윤성호/);
+test("Excel 원본 바이너리와 운영 명단 seed는 저장소에 포함되지 않는다", () => {
+  const files = readdirSync(new URL("..", import.meta.url), { recursive: true }).map(String);
+  assert.equal(files.some((file) => /\.xls(x)?$/i.test(file)), false);
+  assert.doesNotMatch([html, app, templateSource].join("\n"), /data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64/i);
+  assert.doesNotMatch(app, /const\s+(sample|seed|production)Attendees\s*=/i);
 });

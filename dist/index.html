@@ -34,6 +34,7 @@
           <div class="data-menu" id="data-menu" role="menu" hidden>
             <button type="button" data-action="json-export" role="menuitem">배치 데이터 JSON 내보내기</button>
             <button type="button" data-action="json-import" role="menuitem">JSON 다시 불러오기</button>
+            <button type="button" data-action="backup-export" role="menuitem">교체 전 백업 JSON 내려받기</button>
             <button type="button" data-action="csv-export" role="menuitem">참석자 명단 CSV 내보내기</button>
             <button type="button" data-action="csv-import" role="menuitem">CSV 명단 불러오기</button>
             <button type="button" data-action="seoul-xlsx-import" role="menuitem">서울 기존 양식 Excel 불러오기</button>
@@ -205,20 +206,20 @@
         </div>
         <input id="attendee-id" type="hidden" />
         <div class="form-grid">
-          <label class="field full"><span>이름 *</span><input id="attendee-name" required autocomplete="off" /></label>
-          <label class="field"><span>소속</span><input id="attendee-org" autocomplete="organization" /></label>
-          <label class="field"><span>직위</span><input id="attendee-title" /></label>
+          <label class="field full"><span>이름 *</span><input id="attendee-name" required maxlength="80" autocomplete="off" /></label>
+          <label class="field"><span>소속</span><input id="attendee-org" maxlength="120" autocomplete="organization" /></label>
+          <label class="field"><span>직위</span><input id="attendee-title" maxlength="80" /></label>
           <label class="field"><span>구분</span>
             <select id="attendee-type">
               <option>교내</option><option>외부</option><option>주요 참석자</option><option>배석</option><option>기타</option>
             </select>
           </label>
-          <label class="field"><span>기관·그룹</span><input id="attendee-group" placeholder="예: 한양대학교" /></label>
+          <label class="field"><span>보조 그룹 (선택)</span><input id="attendee-group" maxlength="100" placeholder="예: 대표단 A · 기관은 아래에서 선택" /></label>
           <label class="field"><span>참여기관</span><select id="attendee-institution"><option value="">기관 없음</option></select></label>
           <label class="field"><span>기관 내 순위</span><input id="attendee-rank" type="number" min="1" step="1" placeholder="예: 1" /></label>
           <label class="field"><span>고정 좌석 ID</span><input id="attendee-fixed-seat" list="seat-id-list" placeholder="예: SEOUL-UPPER-13" /></label>
           <label class="check-field"><input id="attendee-locked" type="checkbox" /><span>자리 고정</span></label>
-          <label class="field full"><span>비고</span><textarea id="attendee-note" rows="3"></textarea></label>
+          <label class="field full"><span>비고</span><textarea id="attendee-note" maxlength="500" rows="3"></textarea></label>
         </div>
         <div class="modal-actions">
           <button class="button danger" id="delete-attendee-button" type="button" hidden>삭제</button>
@@ -278,6 +279,7 @@
         <div class="auto-options">
           <label hidden><input id="auto-include-head" type="checkbox" /> 별도 중앙석 없음</label>
           <label><input id="auto-fill-staff" type="checkbox" checked /> 배석 빈자리 자동배치</label>
+          <label><input id="auto-replace-existing" type="checkbox" /> 기존 배정 재계산 (고정석 유지)</label>
         </div>
         <div class="validation-summary" id="auto-validation" aria-live="polite"></div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>상태</th><th>기관</th><th>참석자</th><th>좌석</th><th>근거</th></tr></thead><tbody id="auto-preview-body"></tbody></table></div>

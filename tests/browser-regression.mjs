@@ -44,12 +44,26 @@ function serveDirectory(root, port, fallbackHtml = "") {
   return new Promise((resolve) => server.listen(port, "127.0.0.1", () => resolve(server)));
 }
 
-const mockNameplate = `<!doctype html><meta charset="utf-8"><title>Nameplate receiver</title><div id="status">대기</div><script>
+const mockNameplate = `<!doctype html><meta charset="utf-8"><title>Nameplate receiver</title><div id="status">대기</div><dialog id="transfer"><p id="seat-planner-transfer-summary"></p><button id="seat-planner-transfer-cancel">취소 · 기존 명단 유지</button><button id="seat-planner-transfer-accept">백업 후 가져오기</button></dialog><script>
+let pending = null;
 window.addEventListener("message", event => {
   const data = event.data;
-  if (event.origin !== "http://localhost:${plannerPort}" || event.source !== window.opener || data?.type !== "erica-seat-planner:nameplates:v1" || data?.source !== "erica-seat-planner" || !Array.isArray(data.people)) return;
-  document.querySelector("#status").textContent = "좌석배치기에서 " + data.people.length + "명의 명단을 받았습니다.";
-  event.source.postMessage({ type: "erica-seat-planner:nameplates:accepted", transferId: data.transferId, count: data.people.length }, event.origin);
+  if (event.origin !== "http://localhost:${plannerPort}" || event.source !== window.opener || data?.type !== "erica-seat-planner:nameplates:v1" || data?.source !== "erica-seat-planner" || typeof data.transferId !== "string" || !Array.isArray(data.people) || !data.people.length || data.people.length > 53) return;
+  if (pending) return;
+  pending = { event, data };
+  document.querySelector("#seat-planner-transfer-summary").textContent = "받을 명단 " + data.people.length + "명";
+  document.querySelector("#transfer").showModal();
+});
+document.querySelector("#seat-planner-transfer-cancel").addEventListener("click", () => {
+  pending.event.source.postMessage({ type: "erica-seat-planner:nameplates:rejected", transferId: pending.data.transferId, count: pending.data.people.length }, pending.event.origin);
+  pending = null;
+  document.querySelector("#transfer").close();
+});
+document.querySelector("#seat-planner-transfer-accept").addEventListener("click", () => {
+  document.querySelector("#status").textContent = "좌석배치기에서 " + pending.data.people.length + "명의 명단을 받았습니다.";
+  pending.event.source.postMessage({ type: "erica-seat-planner:nameplates:accepted", transferId: pending.data.transferId, count: pending.data.people.length }, pending.event.origin);
+  pending = null;
+  document.querySelector("#transfer").close();
 });
 </script>`;
 
@@ -63,7 +77,7 @@ function makeState(institutionCount) {
     institutions.push({
       id,
       name: `가명기관 ${index + 1}`,
-      role: index === 0 ? "host" : index === 1 ? "counterparty" : "other",
+      role: index === 0 || index === 2 ? "host" : index % 3 === 1 ? "counterparty" : "other",
       displayOrder: index + 1,
       referenceSeatId: index % 2 === 0 ? upperRefs[Math.floor(index / 2)] : lowerRefs[Math.floor(index / 2)],
       note: "",
@@ -148,6 +162,19 @@ try {
   assert.match(await page.locator("body").innerText(), /메인 49석 \+ 배석 4석 = 총 53석/);
 
   await page.click("#add-attendee-button");
+  await page.click("#attendee-dialog .icon-button[data-close-dialog]");
+  assert.equal(await page.locator("#attendee-dialog[open]").count(), 0);
+  await page.click("#add-attendee-button");
+  await page.click("#attendee-dialog .modal-actions [data-close-dialog]");
+  assert.equal(await page.locator("#attendee-dialog[open]").count(), 0);
+  await page.click("#add-attendee-button");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#attendee-dialog[open]").count(), 0);
+  await page.click("#add-attendee-button");
+  await page.mouse.click(5, 5);
+  assert.equal(await page.locator("#attendee-dialog[open]").count(), 0);
+
+  await page.click("#add-attendee-button");
   await page.fill("#attendee-name", "가명 직접등록");
   await page.fill("#attendee-org", "가명부서");
   await page.click("#save-attendee-button");
@@ -176,21 +203,48 @@ try {
   assert.equal(await page.locator("#bulk-preview-body tr").count(), 1);
   await page.click("#bulk-register-button");
   assert.equal(Number(await page.locator("#total-count").textContent()), 1);
+  const beforeInvalidJson = await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1"));
+  await page.setInputFiles("#json-file-input", {
+    name: "가명-잘못된-배치.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"schemaVersion":1,"attendees":[', "utf8"),
+  });
+  assert.equal(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")), beforeInvalidJson);
+
+  const cancelledImport = new Promise((resolve) => page.once("dialog", async (dialog) => {
+    await dialog.dismiss();
+    resolve();
+  }));
+  await page.setInputFiles("#json-file-input", {
+    name: "가명-취소-배치.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(makeState(1)), "utf8"),
+  });
+  await cancelledImport;
+  assert.equal(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")), beforeInvalidJson);
+
+  const acceptedImport = new Promise((resolve) => page.once("dialog", async (dialog) => {
+    await dialog.accept();
+    resolve();
+  }));
   await page.setInputFiles("#json-file-input", {
     name: "가명-배치.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(makeState(1)), "utf8"),
   });
+  await acceptedImport;
   await page.waitForFunction(() => document.querySelector("#total-count")?.textContent === "2");
   assert.equal(Number(await page.locator("#total-count").textContent()), 2);
   await loadState(page, makeState(0));
 
   if (legacyXlsxPath) {
+    const beforeLegacyPreview = await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1"));
     await page.setInputFiles("#seoul-xlsx-file-input", legacyXlsxPath);
     await page.waitForSelector("#bulk-dialog[open]");
     assert.equal(await page.locator("#bulk-preview-body tr").count(), 13);
     assert.match(await page.locator("#bulk-file-name").textContent(), /양식 전용 Import/);
     await page.click('#bulk-dialog [data-close-dialog]');
+    assert.equal(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")), beforeLegacyPreview);
   }
 
   const xlsxBytes = await createSyntheticXlsx(page);
@@ -207,15 +261,40 @@ try {
   assert.equal(Number(await page.locator("#total-count").textContent()), 4);
   const importedState = JSON.parse(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")));
   assert.ok(importedState.attendees.every((attendee) => attendee.seatLocked));
+  const lockedAttendee = importedState.attendees[0];
+  const lockedSeat = Object.keys(importedState.assignments).find((seatId) => importedState.assignments[seatId] === lockedAttendee.id);
+  await page.click('[data-filter="all"]');
+  await page.locator(`[data-attendee-id="${lockedAttendee.id}"]`).click();
+  await page.click('[data-seat-id="SEOUL-UPPER-01"]');
+  const afterLockedMove = JSON.parse(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")));
+  assert.equal(afterLockedMove.assignments[lockedSeat], lockedAttendee.id);
+  assert.notEqual(afterLockedMove.assignments["SEOUL-UPPER-01"], lockedAttendee.id);
 
   await applyAutoLayout(page, 1);
   await page.click("#undo-button");
   assert.equal(Number(await page.locator("#assigned-count").textContent()), 0);
   await applyAutoLayout(page, 2);
+  await applyAutoLayout(page, 3);
+
+  const relationState = makeState(2);
+  relationState.assignments = { "SEOUL-UPPER-04": "attendee-1-1", "SEOUL-LOWER-04": "attendee-2-1" };
+  await loadState(page, relationState);
+  await page.click("#institutions-button");
+  await page.locator("#institutions-body tr").last().locator("[data-remove-institution]").click();
+  const institutionRemoval = new Promise((resolve) => page.once("dialog", async (dialog) => {
+    await dialog.accept();
+    resolve();
+  }));
+  await page.click("#save-institutions-button");
+  await institutionRemoval;
+  const afterInstitutionRemoval = JSON.parse(await page.evaluate(() => localStorage.getItem("seoul-seat-planner:v1")));
+  assert.equal(afterInstitutionRemoval.attendees.length, 4);
+  assert.equal(afterInstitutionRemoval.assignments["SEOUL-LOWER-04"], "attendee-2-1");
+  assert.ok(afterInstitutionRemoval.attendees.filter((attendee) => attendee.id.startsWith("attendee-2-")).every((attendee) => attendee.institutionId === ""));
 
   const collisionState = makeState(2);
   collisionState.institutions[0].referenceSeatId = "SEOUL-UPPER-13";
-  collisionState.institutions[1].referenceSeatId = "SEOUL-UPPER-15";
+  collisionState.institutions[1].referenceSeatId = "SEOUL-UPPER-13";
   collisionState.attendees.push(
     { ...collisionState.attendees[1], id: "attendee-1-3", name: "가명 1-3", institutionId: "institution-1", institutionRank: 3 },
     { ...collisionState.attendees[3], id: "attendee-2-3", name: "가명 2-3", institutionId: "institution-2", institutionRank: 3 },
@@ -223,11 +302,12 @@ try {
   await loadState(page, collisionState);
   await page.click("#auto-layout-button");
   await page.waitForSelector("#auto-layout-dialog[open]");
-  assert.match(await page.locator("#auto-validation").textContent(), /기관별 확장 영역 충돌|다른 기관 또는 고정석과 충돌/);
+  assert.match(await page.locator("#auto-validation").textContent(), /기관 기준 좌석이 중복/);
   assert.equal(await page.locator("#apply-auto-button").isDisabled(), true);
   await page.click('#auto-layout-dialog [data-close-dialog]');
 
   await applyAutoLayout(page, 6);
+  await applyAutoLayout(page, 10);
 
   const swappedState = makeState(1);
   swappedState.assignments = { "SEOUL-UPPER-04": "attendee-1-1", "SEOUL-UPPER-05": "attendee-1-2" };
@@ -254,12 +334,54 @@ try {
   await page.click('[data-action="csv-export"]');
   assert.match((await csvDownload).suggestedFilename(), /\.csv$/);
 
-  const popupPromise = context.waitForEvent("page");
+  let popupPromise = context.waitForEvent("page");
   await page.click("#nameplate-button");
-  const nameplate = await popupPromise;
+  let nameplate = await popupPromise;
   await nameplate.waitForLoadState("domcontentloaded");
+  await nameplate.locator("#seat-planner-transfer-cancel").waitFor({ state: "visible", timeout: 10000 });
+  await nameplate.click("#seat-planner-transfer-cancel");
+  await page.waitForFunction(() => [...document.querySelectorAll(".toast")].some((item) => item.textContent.includes("취소되었습니다")));
+  await nameplate.close();
+
+  popupPromise = context.waitForEvent("page");
+  await page.click("#nameplate-button");
+  nameplate = await popupPromise;
+  await nameplate.waitForLoadState("domcontentloaded");
+  await nameplate.locator("#seat-planner-transfer-accept").waitFor({ state: "visible", timeout: 10000 });
+  await nameplate.click("#seat-planner-transfer-accept");
   await nameplate.waitForFunction(() => document.body.innerText.includes("2명의 명단을 받았습니다"), null, { timeout: 10000 });
   await nameplate.close();
+
+  await page.evaluate(() => {
+    const attendees = window.SEOUL_ROOM_TEMPLATE.seats.map((seat, index) => ({
+      id: `full-${index + 1}`,
+      name: `가상긴이름${String(index + 1).padStart(2, "0")}참석자`,
+      org: `가상서울공동연구기관${(index % 10) + 1}`, title: `국제협력운영위원${(index % 7) + 1}`,
+      type: seat.section === "staff" ? "배석" : "주요 참석자", group: "", note: "",
+      institutionId: "", institutionRank: null, fixedSeatId: "", seatLocked: false,
+    }));
+    const assignments = Object.fromEntries(window.SEOUL_ROOM_TEMPLATE.seats.map((seat, index) => [seat.id, attendees[index].id]));
+    localStorage.setItem("seoul-seat-planner:v1", JSON.stringify({
+      schemaVersion: 1,
+      roomTemplateId: "seoul-new-building-meeting-room-1",
+      event: {
+        title: "가상 서울 국제공동교육과정 발전협의회 장문 행사명 출력 안정성 점검",
+        date: "2026-09-15T18:00",
+        organizations: "가상서울대학교 · 가상국제공동연구기관 · 가상협력재단",
+        location: "한양대학교 서울캠퍼스 신본관 회의실1",
+        note: "출력 검증용 가상 데이터",
+      },
+      institutions: [], attendees, assignments,
+      settings: { showSeatNumbers: true, mode: "edit", includeHeadInAuto: false, autoFillStaff: true },
+    }));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  assert.equal(Number(await page.locator("#assigned-count").textContent()), 53);
+  const overflowingSeatText = await page.locator("[data-seat-id]").evaluateAll((groups) => groups.filter((group) => {
+    const width = Number(group.querySelector("rect")?.getAttribute("width") || 0);
+    return [...group.querySelectorAll("text")].some((text) => text.getBBox().width > width - 2);
+  }).length);
+  assert.equal(overflowingSeatText, 0);
 
   await page.click('[data-mode="output"]');
   const pngDownload = page.waitForEvent("download");
