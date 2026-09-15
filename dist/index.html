@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2240" />
+    <meta
+      name="description"
+      content="한양대학교 서울캠퍼스 신본관 회의실1 전용 좌석배치 제작기"
+    />
+    <title>Hanyang Seoul Seat Planner · 신본관 회의실1</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">HANYANG SEOUL · NEW BUILDING MEETING ROOM 1</p>
+            <h1>좌석배치 제작기</h1>
+          </div>
+        </div>
+
+        <div class="header-actions edit-only">
+          <button class="button ghost" id="undo-button" type="button" disabled aria-label="실행 취소">↶ <span>취소</span></button>
+          <button class="button ghost" id="redo-button" type="button" disabled aria-label="다시 실행">↷ <span>복원</span></button>
+          <div class="divider" aria-hidden="true"></div>
+          <button class="button ghost" id="new-button" type="button">새 배치</button>
+          <button class="button ghost" id="institutions-button" type="button">참여기관 관리</button>
+          <button class="button ghost" id="nameplate-button" type="button">명패 만들기</button>
+          <button class="button ghost" id="data-menu-button" type="button" aria-haspopup="menu" aria-expanded="false">가져오기·내보내기</button>
+          <div class="data-menu" id="data-menu" role="menu" hidden>
+            <button type="button" data-action="json-export" role="menuitem">배치 데이터 JSON 내보내기</button>
+            <button type="button" data-action="json-import" role="menuitem">JSON 다시 불러오기</button>
+            <button type="button" data-action="csv-export" role="menuitem">참석자 명단 CSV 내보내기</button>
+            <button type="button" data-action="csv-import" role="menuitem">CSV 명단 불러오기</button>
+            <button type="button" data-action="seoul-xlsx-import" role="menuitem">서울 기존 양식 Excel 불러오기</button>
+          </div>
+        </div>
+
+        <div class="mode-switch" role="group" aria-label="화면 모드">
+          <button type="button" class="active" data-mode="edit">편집</button>
+          <button type="button" data-mode="output">출력</button>
+        </div>
+      </header>
+
+      <section class="event-strip" aria-label="행사 정보">
+        <label class="field event-title-field">
+          <span>행사명</span>
+          <input id="event-title" type="text" value="신본관 회의실1 좌석배치" />
+        </label>
+        <label class="field">
+          <span>일시</span>
+          <input id="event-date" type="datetime-local" />
+        </label>
+        <label class="field">
+          <span>참여기관</span>
+          <span class="inline-control">
+            <input id="event-organizations" type="text" readonly placeholder="기관을 등록해 주세요" />
+            <button id="institution-inline-button" type="button">관리</button>
+          </span>
+        </label>
+        <label class="field location-field">
+          <span>장소</span>
+          <input id="event-location" type="text" />
+        </label>
+        <label class="field note-field">
+          <span>비고</span>
+          <input id="event-note" type="text" placeholder="행사 운영 메모" />
+        </label>
+      </section>
+
+      <main class="workspace">
+        <aside class="attendee-panel edit-only" aria-label="참석자 관리">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">ATTENDEES</p>
+              <h2>참석자</h2>
+            </div>
+            <div class="panel-actions">
+              <button class="button ghost" id="bulk-attendee-button" type="button">명단 일괄 등록</button>
+              <button class="button primary" id="add-attendee-button" type="button">한 명 추가</button>
+            </div>
+          </div>
+
+          <div class="summary-grid" aria-label="배정 현황">
+            <div><strong id="total-count">0</strong><span>전체</span></div>
+            <div><strong id="assigned-count">0</strong><span>배정</span></div>
+            <div><strong id="unassigned-count">0</strong><span>미배정</span></div>
+            <div><strong id="available-count">53</strong><span>빈 좌석</span></div>
+          </div>
+
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <span class="sr-only">참석자 검색</span>
+            <input id="attendee-search" type="search" placeholder="이름·소속·직위 검색" />
+          </label>
+
+          <div class="filter-tabs" role="tablist" aria-label="참석자 목록 필터">
+            <button class="active" type="button" role="tab" data-filter="unassigned">미배정 <span id="tab-unassigned-count">0</span></button>
+            <button type="button" role="tab" data-filter="all">전체 <span id="tab-all-count">0</span></button>
+          </div>
+
+          <div class="attendee-list" id="attendee-list" data-unassigned-drop="true" aria-live="polite"></div>
+          <p class="drop-hint" id="drop-hint">좌석의 참석자를 이곳으로 끌면 배정이 해제됩니다.</p>
+
+          <div class="selected-card" id="selected-card" hidden>
+            <div>
+              <span class="selected-label">선택한 참석자</span>
+              <strong id="selected-name"></strong>
+              <small id="selected-meta"></small>
+            </div>
+            <button type="button" id="clear-selection-button" aria-label="선택 해제">×</button>
+          </div>
+        </aside>
+
+        <section class="planner-panel" aria-label="좌석 배치도">
+          <div class="planner-toolbar edit-only">
+            <div class="legend">
+              <span><i class="legend-dot empty"></i>빈 좌석</span>
+              <span><i class="legend-dot main"></i>메인석</span>
+              <span><i class="legend-dot staff"></i>배석</span>
+            </div>
+            <button class="button primary auto-layout-button" id="auto-layout-button" type="button">좌석 자동배치(초안)</button>
+            <div class="canvas-controls">
+              <label class="switch-control">
+                <input id="seat-number-toggle" type="checkbox" checked />
+                <span class="switch"></span>
+                좌석번호
+              </label>
+              <button type="button" id="zoom-out-button" aria-label="축소">−</button>
+              <output id="zoom-output">100%</output>
+              <button type="button" id="zoom-in-button" aria-label="확대">+</button>
+              <button class="fit-button" type="button" id="fit-button">화면 맞춤</button>
+              <button class="fit-button" type="button" id="reset-view-button">초기 위치</button>
+            </div>
+          </div>
+
+          <div class="print-heading">
+            <p>HANYANG UNIVERSITY SEOUL</p>
+            <h2 id="print-event-title">신본관 회의실1 좌석배치</h2>
+            <div id="print-event-meta"></div>
+          </div>
+
+          <div class="room-viewport" id="room-viewport">
+            <svg
+              id="room-svg"
+              viewBox="0 0 1600 900"
+              role="img"
+              aria-labelledby="room-title room-desc"
+              tabindex="0"
+            >
+              <title id="room-title">신본관 회의실1 좌석 배치도</title>
+              <desc id="room-desc">기존 Excel에서 확인한 상단 메인석 24석, 하단 메인석 25석, 배석 4석을 반영한 배치도</desc>
+              <defs>
+                <linearGradient id="roomFloor" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#f7f4ed" />
+                  <stop offset="1" stop-color="#ede9df" />
+                </linearGradient>
+                <linearGradient id="tableWood" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#6e351f" />
+                  <stop offset="0.48" stop-color="#9b5431" />
+                  <stop offset="1" stop-color="#6d321f" />
+                </linearGradient>
+                <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0b1b2d" flood-opacity=".15" />
+                </filter>
+                <style>
+                  .svg-label{font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em}
+                  .seat-text{font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
+                  .seat-group{cursor:pointer;outline:none}
+                  .seat-group:focus .seat-hit,.seat-group.selected .seat-hit{stroke:#0d75d8;stroke-width:3}
+                  .seat-group.drop-target .seat-hit{stroke:#16a36a;stroke-width:4;stroke-dasharray:7 4}
+                </style>
+              </defs>
+
+              <g id="room-shell"></g>
+              <g id="fixture-layer"></g>
+              <g id="seat-layer"></g>
+            </svg>
+            <div class="canvas-tip edit-only">빈 공간을 드래그해 이동 · Ctrl/⌘ + 휠로 확대·축소</div>
+            <div class="drag-ghost" id="drag-ghost" hidden></div>
+          </div>
+
+          <div class="output-actions output-only">
+            <button class="button ghost" type="button" id="print-button">인쇄 · PDF 저장</button>
+            <button class="button primary" type="button" id="png-button">PNG 이미지 저장</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="statusbar">
+        <span><i class="save-dot"></i><strong id="save-status">자동저장됨</strong></span>
+        <span>신본관 회의실1 · 메인 49석 + 배석 4석 = 총 53석 · Excel 상대 위치 기준</span>
+      </footer>
+    </div>
+
+    <dialog id="attendee-dialog" class="modal">
+      <form method="dialog" id="attendee-form">
+        <div class="modal-heading">
+          <div><p class="eyebrow">ATTENDEE</p><h2 id="attendee-dialog-title">참석자 추가</h2></div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="닫기">×</button>
+        </div>
+        <input id="attendee-id" type="hidden" />
+        <div class="form-grid">
+          <label class="field full"><span>이름 *</span><input id="attendee-name" required autocomplete="off" /></label>
+          <label class="field"><span>소속</span><input id="attendee-org" autocomplete="organization" /></label>
+          <label class="field"><span>직위</span><input id="attendee-title" /></label>
+          <label class="field"><span>구분</span>
+            <select id="attendee-type">
+              <option>교내</option><option>외부</option><option>주요 참석자</option><option>배석</option><option>기타</option>
+            </select>
+          </label>
+          <label class="field"><span>기관·그룹</span><input id="attendee-group" placeholder="예: 한양대학교" /></label>
+          <label class="field"><span>참여기관</span><select id="attendee-institution"><option value="">기관 없음</option></select></label>
+          <label class="field"><span>기관 내 순위</span><input id="attendee-rank" type="number" min="1" step="1" placeholder="예: 1" /></label>
+          <label class="field"><span>고정 좌석 ID</span><input id="attendee-fixed-seat" list="seat-id-list" placeholder="예: SEOUL-UPPER-13" /></label>
+          <label class="check-field"><input id="attendee-locked" type="checkbox" /><span>자리 고정</span></label>
+          <label class="field full"><span>비고</span><textarea id="attendee-note" rows="3"></textarea></label>
+        </div>
+        <div class="modal-actions">
+          <button class="button danger" id="delete-attendee-button" type="button" hidden>삭제</button>
+          <span></span>
+          <button class="button ghost" data-close-dialog type="button">취소</button>
+          <button class="button primary" id="save-attendee-button" type="button">저장</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bulk-dialog" class="modal wide-modal">
+      <div class="modal-body">
+        <div class="modal-heading">
+          <div><p class="eyebrow">BULK REGISTRATION</p><h2>명단 일괄 등록</h2></div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="닫기">×</button>
+        </div>
+        <div class="bulk-toolbar">
+          <button class="button ghost" id="download-example-csv-button" type="button">예시 CSV 다운로드</button>
+          <button class="button primary" id="choose-csv-button" type="button">CSV 파일 선택</button>
+          <button class="button ghost" id="choose-seoul-xlsx-button" type="button">서울 기존 양식 Excel 선택</button>
+          <span id="bulk-file-name">파일을 선택하면 편집 가능한 미리보기가 표시됩니다.</span>
+        </div>
+        <div class="validation-summary" id="bulk-validation" aria-live="polite"></div>
+        <div class="table-scroll"><table class="data-table" aria-label="명단 등록 미리보기"><thead id="bulk-preview-head"></thead><tbody id="bulk-preview-body"></tbody></table></div>
+        <div class="modal-actions centered">
+          <button class="button ghost" data-close-dialog type="button">취소</button>
+          <button class="button ghost" id="bulk-register-button" type="button" disabled>등록</button>
+          <button class="button primary" id="bulk-register-auto-button" type="button" disabled>등록 후 자동배치</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="institutions-dialog" class="modal wide-modal">
+      <div class="modal-body">
+        <div class="modal-heading">
+          <div><p class="eyebrow">INSTITUTIONS</p><h2>참여기관 관리</h2></div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="닫기">×</button>
+        </div>
+        <p class="modal-help">기관명·역할·표시순서·기준 좌석을 자유롭게 관리합니다. 주최·상대기관은 여러 개 지정할 수 있습니다.</p>
+        <div class="table-scroll"><table class="data-table institution-table"><thead><tr><th>기관명</th><th>역할</th><th>순서</th><th>기준 좌석</th><th>메모</th><th></th></tr></thead><tbody id="institutions-body"></tbody></table></div>
+        <div class="modal-actions">
+          <button class="button ghost" id="add-institution-button" type="button">기관 추가</button><span></span>
+          <button class="button ghost" data-close-dialog type="button">취소</button>
+          <button class="button primary" id="save-institutions-button" type="button">저장</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="auto-layout-dialog" class="modal wide-modal">
+      <div class="modal-body">
+        <div class="modal-heading">
+          <div><p class="eyebrow">DRAFT ONLY</p><h2>좌석 자동배치(초안)</h2></div>
+          <button class="icon-button" data-close-dialog type="button" aria-label="닫기">×</button>
+        </div>
+        <p class="modal-help">기관 내 숫자 순위를 기준으로 만든 운영 초안입니다. 의전 판단을 대신하지 않으며, 적용 전까지 현재 배정을 변경하지 않습니다.</p>
+        <div id="auto-reference-list" class="reference-grid"></div>
+        <div class="auto-options">
+          <label hidden><input id="auto-include-head" type="checkbox" /> 별도 중앙석 없음</label>
+          <label><input id="auto-fill-staff" type="checkbox" checked /> 배석 빈자리 자동배치</label>
+        </div>
+        <div class="validation-summary" id="auto-validation" aria-live="polite"></div>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>상태</th><th>기관</th><th>참석자</th><th>좌석</th><th>근거</th></tr></thead><tbody id="auto-preview-body"></tbody></table></div>
+        <div class="modal-actions centered">
+          <button class="button ghost" data-close-dialog type="button">취소</button>
+          <button class="button ghost" id="recalculate-auto-button" type="button">다시 계산</button>
+          <button class="button primary" id="apply-auto-button" type="button">적용</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="reset-dialog" class="modal confirm-modal">
+      <form method="dialog">
+        <div class="confirm-icon">!</div>
+        <h2>새 배치를 만들까요?</h2>
+        <p>현재 행사 정보, 참석자, 좌석 배정이 모두 지워집니다. 내보내지 않은 데이터는 복구할 수 없습니다.</p>
+        <div class="modal-actions centered">
+          <button class="button ghost" value="cancel">취소</button>
+          <button class="button danger solid" id="confirm-reset-button" value="default">새 배치 만들기</button>
+        </div>
+      </form>
+    </dialog>
+
+    <input id="json-file-input" type="file" accept="application/json,.json" hidden />
+    <input id="csv-file-input" type="file" accept="text/csv,.csv" hidden />
+    <input id="seoul-xlsx-file-input" type="file" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" hidden />
+    <datalist id="seat-id-list"></datalist>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="./xlsx.full.min.js"></script>
+    <script src="./room-template.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
