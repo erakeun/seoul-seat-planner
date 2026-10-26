@@ -21,12 +21,20 @@
 
 .mach-screen-bar{padding:8px 24px;margin:0;background:#fff}
 </style>
+<style id="mach-feedback-style">
+.mach-home-nav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.mach-feedback-link{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;max-width:100%;padding:10px 14px;box-sizing:border-box;border:1px solid #b8c8db;border-radius:8px;color:#164b7c;background:#fff;font:600 14px/1.5 system-ui,sans-serif;text-align:center;text-decoration:none}
+.mach-feedback-link:hover{background:#edf4fb;text-decoration:underline}
+.mach-feedback-link:focus-visible{outline:3px solid #165dcb;outline-offset:3px}
+@media print{.mach-feedback-link{display:none!important}}
+</style>
 </head>
   <body>
 <div class="mach-home-nav mach-screen-bar" data-html2canvas-ignore="true">
   <a class="mach-home-link" href="https://erakeun.github.io/ERICAAI/" aria-label="MACH 홈으로 이동">
     <img src="assets/mach-selected-A.svg" alt="PROJECT MACH" decoding="async">
   </a>
+  <a class="mach-feedback-link" href="https://script.google.com/macros/s/AKfycby2ShSY4ruQr9Ku-QlljB05Ygk3ygDRtX-hXWO0hfUmEULl-jK9Z7mqh_k2m9GSV70v/exec?tool=22" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" aria-label="오류·개선 의견 보내기 (새 탭, 비공개)">오류·개선 의견 ↗</a>
 </div>
     <div class="app-shell" id="app-shell">
       <header class="topbar">
